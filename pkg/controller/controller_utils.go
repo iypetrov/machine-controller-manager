@@ -745,6 +745,21 @@ func (s ActiveMachines) Less(i, j int) bool {
 	if isPreservedI != isPreservedJ {
 		return !isPreservedI // if s[i] preserved, it is "greater" and should not be deleted first, therefore, "less" is false, and vice versa
 	}
+	if isPreservedI { // both machines are preserved, in which case deprioritize explicitly preserved machines over auto-preserved
+		isAutoPreserved := func(m *v1alpha1.Machine) bool {
+			return m.Annotations[machineutils.PreserveMachineAnnotationKey] == machineutils.PreserveMachineAnnotationValuePreservedByMCM
+		}
+		isAutoPreservedI := isAutoPreserved(s[i])
+		isAutoPreservedJ := isAutoPreserved(s[j])
+		if isAutoPreservedI != isAutoPreservedJ {
+			return isAutoPreservedI // if s[i] is auto-preserved, it is "less", and should be deleted first
+		}
+		// if both are auto-preserved or both are explicitly preserved, we decide based on whichever machine
+		// has an earlier preserve expiry time
+		if !s[i].Status.CurrentStatus.PreserveExpiryTime.Equal(s[j].Status.CurrentStatus.PreserveExpiryTime) {
+			return s[i].Status.CurrentStatus.PreserveExpiryTime.Before(s[j].Status.CurrentStatus.PreserveExpiryTime)
+		}
+	}
 
 	// Default priority for machine objects
 	machineIPriority := 3

@@ -74,12 +74,11 @@ spec:
 ```
 
 #### Configuration Semantics
-- `AutoPreserveFailedMachineMax` : Maximum number of failed machines that can be auto-preserved concurrently in a worker pool. This value is distributed across machineDeployments (zones) in the worker pool. If the limit is reached, additional failed machines will not be preserved and will proceed to termination as usual.
-- `machinePreserveTimeout` : Duration after which preserved machines are automatically released
+- `AutoPreserveFailedMachineMax`: Maximum number of failed machines that can be auto-preserved concurrently in a worker pool. This value is distributed across `machineDeployments` (zones) in the worker pool. If the limit is reached, additional failed machines will not be preserved and will be terminated normally. On worker pools where `workers[i].systemComponents.allow: true`, `AutoPreserveFailedMachineMax` cannot exceed `worker[i].Maximum - 1`. If `workers[i].systemComponents.allow: false`, `AutoPreserveFailedMachineMax` can be at most `worker[i].Maximum`.
+- `machinePreserveTimeout` : Duration after which preserved machines are automatically released. This defaults to `96h` (4 days).
 
-> Note: ⚠️ Changes to `machinePreserveTimeout` apply only to preservation done after the change.
-> If `AutoPreserveFailedMachineMax` is decreased, preservation is stopped for older auto-preserved machines(earlier creationTimestamp) until the number of preserved machines is within the new limit.
-> If the number of failed machines exceeds the `AutoPreserveFailedMachineMax` limit at any given time, machines with more recent creationTimestamp are auto-preserved first.
+> Note: ⚠️ Changes to machinePreserveTimeout apply only to preservations that occur after the change.
+> If AutoPreserveFailedMachineMax is decreased, auto-preserved machines are de-preserved first, followed by manually preserved machines, until the count is within the new limit. When deciding between two auto-preserved or two manually preserved machines to de-preserve, the machine with the earlier PreserveExpiryTime is de-preserved first.
 
 ### Preservation annotations
 
@@ -148,6 +147,8 @@ In all the cases, when the machine moves to `Running` during preservation, the b
 - Scale-down preference: Preserved machines are the last to be scaled down.
 - Preservation status is visible via Node Conditions and Machine Status fields.
 - machinePreserveTimeout changes do not affect existing preserved machines. Operators may edit PreserveExpiryTime directly if required to extend preservation.
+- If a machine or its backing node is annotated for preservation when the machine is in the Failed state, MCM may not be able to act on it before the machine is Terminated. Therefore, it is recommended to annotate the machine/node for preservation when the machine enters the Unknown phase, or as soon as the node is observed to be NotReady, to increase the chances of preservation taking effect before termination.
+- Similarly, if an underutilized and unneeded machine is annotated for preservation, but CA initiates scale-down before MCM can add the CA scale-down-disabled annotation as a part of its preservation logic, the machine may be scaled down before preservation takes effect. 
 
 
-> NOTE: To prevent confusion and unintended behaviour, it is recommended to use preservation by annotating the node object if it exists and can be accessed.
+> NOTE: To prevent confusion and unintended behaviour, it is recommended to use preservation by annotating the node object, if it exists and can be accessed, rather than the machine object.

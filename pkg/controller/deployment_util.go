@@ -453,13 +453,14 @@ func UpdateMachineSetClassKind(deployment *v1alpha1.MachineDeployment, newIS *v1
 }
 
 var annotationsToSkip = map[string]bool{
-	v1.LastAppliedConfigAnnotation: true,
-	RevisionAnnotation:             true,
-	RevisionHistoryAnnotation:      true,
-	DesiredReplicasAnnotation:      true,
-	MaxReplicasAnnotation:          true,
-	PreferNoScheduleKey:            true,
-	UnfreezeAnnotation:             true,
+	v1.LastAppliedConfigAnnotation:    true,
+	RevisionAnnotation:                true,
+	RevisionHistoryAnnotation:         true,
+	DesiredReplicasAnnotation:         true,
+	MaxReplicasAnnotation:             true,
+	PreferNoScheduleKey:               true,
+	UnfreezeAnnotation:                true,
+	machineutils.TriggerDeletionByMCM: true,
 }
 
 // skipCopyAnnotation returns true if we should skip copying the annotation with the given annotation key

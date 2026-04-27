@@ -437,7 +437,6 @@ func (c *controller) manageReplicas(ctx context.Context, allMachines []*v1alpha1
 		if machinesWithoutUpdateSuccessfulLabelDiff > BurstReplicas {
 			machinesWithoutUpdateSuccessfulLabelDiff = BurstReplicas
 		}
-		logMachinesPriorityAndMarkedDeletionTime(machinesWithoutUpdateSuccessfulLabel)
 		staleMachines = append(staleMachines, getMachinesToDelete(machinesWithoutUpdateSuccessfulLabel, machinesWithoutUpdateSuccessfulLabelDiff)...)
 	}
 
@@ -825,7 +824,11 @@ func (c *controller) updateMachineSetFinalizers(ctx context.Context, machineSet 
 // that machine is added to the staleMachine list to be deleted.
 // This is done to have consistency between machineDeployment replica change and the machines marked for deletion.
 func getMachinesMarkedForDeletion(machineList []*v1alpha1.Machine, machineSet *v1alpha1.MachineSet) (staleMachines []*v1alpha1.Machine) {
-	machineSetLRCA, perr := time.Parse(time.RFC3339, machineSet.Annotations[machineutils.LastDeploymentReplicaChangeByScalerTime])
+	LDRCBST := machineSet.Annotations[machineutils.LastDeploymentReplicaChangeByScalerTime]
+	if LDRCBST == "" {
+		return
+	}
+	machineSetLDRCBST, perr := time.Parse(time.RFC3339, LDRCBST)
 	if perr != nil {
 		klog.Warningf("Unable to parse %q of machineset %q: %v", machineutils.LastDeploymentReplicaChangeByScalerTime, machineSet.Name, perr)
 		return
@@ -841,7 +844,7 @@ func getMachinesMarkedForDeletion(machineList []*v1alpha1.Machine, machineSet *v
 			klog.Infof("Error parsing time from annotation %q=%q on machine %q: %v", machineutils.MarkedForDeletionTime, markedMachineDeletionTime, machine.Name, err)
 			continue
 		}
-		if machineLRCA.Before(machineSetLRCA) || machineLRCA.Equal(machineSetLRCA) {
+		if machineLRCA.Before(machineSetLDRCBST) || machineLRCA.Equal(machineSetLDRCBST) {
 			staleMachines = append(staleMachines, machine)
 		}
 	}
